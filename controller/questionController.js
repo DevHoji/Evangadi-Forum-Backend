@@ -1,6 +1,6 @@
 const dbConnection = require("../db/dbConfig");
 const { StatusCodes } = require("http-status-codes");
-const { v4: uuidv4 } = require("uuid"); // Import UUID generator
+const { v4: uuidv4 } = require("uuid");
 
 async function getAllQuestions(req, res) {
   try {
@@ -20,11 +20,11 @@ async function getAllQuestions(req, res) {
 }
 
 async function getQuestionById(req, res) {
-  const { id } = req.params; // Get the *id* from the URL parameters (not questionid)
+  const { id } = req.params;
 
   try {
     const [question] = await dbConnection.query(
-      "SELECT id, questionid, title, description, userid, tag FROM questions WHERE id = ?", // Use id in the query
+      "SELECT id, questionid, title, description, userid, tag FROM questions WHERE id = ?",
       [id]
     );
 
@@ -34,7 +34,7 @@ async function getQuestionById(req, res) {
         .json({ msg: `No question found with id: ${id}` });
     }
 
-    return res.status(StatusCodes.OK).json({ question: question[0] }); // Return the first (and only) question
+    return res.status(StatusCodes.OK).json({ question: question[0] });
   } catch (error) {
     console.error(error);
     return res
@@ -45,8 +45,8 @@ async function getQuestionById(req, res) {
 
 async function createQuestion(req, res) {
   const { title, description, tag } = req.body;
-  const userid = req.user.userid; // Get the user ID from the authenticated user
-  const questionid = uuidv4(); // Generate a unique questionid
+  const userid = req.user.userid;
+  const questionid = uuidv4();
 
   if (!title || !description) {
     return res
@@ -56,9 +56,20 @@ async function createQuestion(req, res) {
 
   try {
     await dbConnection.query(
-      "INSERT INTO questions (questionid, userid, title, description, tag) VALUES (?, ?, ?, ?, ?)", // Include questionid in the insert
+      "INSERT INTO questions (questionid, userid, title, description, tag) VALUES (?, ?, ?, ?, ?)",
       [questionid, userid, title, description, tag]
     );
+
+    // Get the newly created question
+    const [newQuestion] = await dbConnection.query(
+      "SELECT id, questionid, title, description, userid, tag FROM questions WHERE questionid = ?",
+      [questionid]
+    );
+
+    // Emit the 'newQuestion' event
+    const emitNewQuestion = req.app.get("emitNewQuestion"); //Get the emit function
+    emitNewQuestion(newQuestion[0]); // Send the new question data
+
     return res
       .status(StatusCodes.CREATED)
       .json({ msg: "Question created successfully" });
